@@ -1,0 +1,64 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+    AWS_ACCOUNT_ID: "869620365293"
+    EKS_CLUSTER_NAME: query-profiler-dashboard
+    EKS_KUBECTL_ROLE_ARN: arn:aws:iam::869620365293:role/CodeBuildKubectlRole
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo Installing kubectl...
+      - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin
+      - echo Installing aws-cli...
+      - pip install awscli --upgrade
+
+  pre_build:
+    commands:
+      - echo Configuring kubectl for EKS...
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
+      - echo Current kubectl context:
+      - kubectl config current-context
+      - echo Validating IMAGE_URI environment variable...
+      - |
+        if [ -z "$IMAGE_URI" ]; then
+          echo "ERROR: IMAGE_URI environment variable not set"
+          echo "Attempting to retrieve from Parameter Store..."
+          IMAGE_URI=$(aws ssm get-parameter --name "/query-profiler/latest-image-uri" --query 'Parameter.Value' --output text)
+          if [ -z "$IMAGE_URI" ]; then
+            echo "ERROR: Could not retrieve IMAGE_URI from Parameter Store"
+            exit 1
+          fi
+        fi
+      - echo "Using IMAGE_URI: $IMAGE_URI"
+
+  build:
+    commands:
+      - echo Deployment started on `date`
+      - echo Using image URI: $IMAGE_URI
+      - echo Applying Kubernetes manifests...
+      - kubectl apply -f k8s/namespace.yaml
+      - kubectl apply -f k8s/deployment.yaml
+      - kubectl apply -f k8s/service.yaml
+      - echo Updating deployment with new image...
+      - kubectl set image deployment/query-profiler-frontend query-profiler-frontend=$IMAGE_URI -n query-profiler
+      - echo Waiting for rollout to complete...
+      - kubectl rollout status deployment/query-profiler-frontend -n query-profiler --timeout=300s
+
+  post_build:
+    commands:
+      - echo Deployment completed on `date`
+      - echo Getting service information...
+      - kubectl get services -n query-profiler
+      - kubectl get pods -n query-profiler
+      - echo Deployment successful!
+
+artifacts:
+  files:
+    - k8s/*
