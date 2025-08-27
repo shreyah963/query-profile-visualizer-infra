@@ -29,11 +29,26 @@ phases:
       - kubectl config current-context
       - echo Validating IMAGE_URI environment variable...
       - echo "Current IMAGE_URI value is $IMAGE_URI"
+      - echo "Checking if parameter exists in SSM..."
+      - aws ssm describe-parameters --parameter-filters "Key=Name,Values=/query-profiler/latest-image-uri"
       - echo "Retrieving IMAGE_URI from Parameter Store..."
-      - export IMAGE_URI=$(aws ssm get-parameter --name "/query-profiler/latest-image-uri" --query 'Parameter.Value' --output text)
+      - IMAGE_URI=$(aws ssm get-parameter --name "/query-profiler/latest-image-uri" --query 'Parameter.Value' --output text)
       - echo "Retrieved IMAGE_URI from SSM $IMAGE_URI"
-      - test -n "$IMAGE_URI" || (echo "ERROR Could not retrieve IMAGE_URI from Parameter Store" && exit 1)
-      - echo "Using IMAGE_URI $IMAGE_URI"
+      - |
+        if [ -z "$IMAGE_URI" ] || [ "$IMAGE_URI" = "None" ]; then
+          echo "ERROR: Could not retrieve IMAGE_URI from Parameter Store"
+          echo "Checking latest ECR image..."
+          LATEST_TAG=$(aws ecr describe-images --repository-name query-profiler-frontend --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text)
+          if [ "$LATEST_TAG" != "None" ] && [ -n "$LATEST_TAG" ]; then
+            IMAGE_URI="869620365293.dkr.ecr.us-east-1.amazonaws.com/query-profiler-frontend:$LATEST_TAG"
+            echo "Using latest ECR image: $IMAGE_URI"
+          else
+            echo "ERROR: Could not determine latest image from ECR"
+            exit 1
+          fi
+        fi
+      - export IMAGE_URI
+      - echo "Final IMAGE_URI $IMAGE_URI"
 
   build:
     commands:
