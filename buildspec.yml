@@ -29,19 +29,15 @@ phases:
       - kubectl config current-context
       - echo Validating IMAGE_URI environment variable...
       - echo "Current IMAGE_URI value is $IMAGE_URI"
+      - echo "Getting latest image tag from ECR..."
+      - LATEST_TAG=$(aws ecr describe-images --repository-name query-profiler-frontend --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text)
+      - echo "Latest tag from ECR is $LATEST_TAG"
       - |
         if [ -n "$IMAGE_URI" ] && [ "$IMAGE_URI" != "null" ]; then
-          echo "Using provided IMAGE_URI: $IMAGE_URI"
+          echo "Using provided IMAGE_URI: $IMAGE_URI";
         else
-          echo "No IMAGE_URI provided, getting latest from ECR..."
-          LATEST_TAG=$(aws ecr describe-images --repository-name query-profiler-frontend --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text)
-          if [ "$LATEST_TAG" != "None" ] && [ -n "$LATEST_TAG" ]; then
-            IMAGE_URI="869620365293.dkr.ecr.us-east-1.amazonaws.com/query-profiler-frontend:$LATEST_TAG"
-            echo "Using latest ECR image: $IMAGE_URI"
-          else
-            echo "ERROR: Could not determine latest image from ECR"
-            exit 1
-          fi
+          IMAGE_URI="869620365293.dkr.ecr.us-east-1.amazonaws.com/query-profiler-frontend:$LATEST_TAG";
+          echo "Using latest ECR image: $IMAGE_URI";
         fi
       - export IMAGE_URI
       - echo "Final IMAGE_URI $IMAGE_URI"
