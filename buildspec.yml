@@ -29,16 +29,10 @@ phases:
       - kubectl config current-context
       - echo Validating IMAGE_URI environment variable...
       - echo "Current IMAGE_URI value is $IMAGE_URI"
-      - |
-        if [ -z "$IMAGE_URI" ]; then
-          echo "IMAGE_URI not set, retrieving from Parameter Store...";
-          IMAGE_URI=$(aws ssm get-parameter --name "/query-profiler/latest-image-uri" --query 'Parameter.Value' --output text);
-          if [ -z "$IMAGE_URI" ]; then
-            echo "ERROR: Could not retrieve IMAGE_URI from Parameter Store";
-            exit 1;
-          fi;
-          export IMAGE_URI;
-        fi
+      - echo "Retrieving IMAGE_URI from Parameter Store..."
+      - export IMAGE_URI=$(aws ssm get-parameter --name "/query-profiler/latest-image-uri" --query 'Parameter.Value' --output text)
+      - echo "Retrieved IMAGE_URI from SSM $IMAGE_URI"
+      - test -n "$IMAGE_URI" || (echo "ERROR Could not retrieve IMAGE_URI from Parameter Store" && exit 1)
       - echo "Using IMAGE_URI $IMAGE_URI"
 
   build:
