@@ -10,7 +10,7 @@ env:
 phases:
   install:
     runtime-versions:
-      python: 3.11
+      python: 3.9
     commands:
       - echo Installing kubectl...
       - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.28.3/2023-11-14/bin/linux/amd64/kubectl
