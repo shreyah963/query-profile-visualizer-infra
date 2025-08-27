@@ -24,7 +24,7 @@ phases:
   pre_build:
     commands:
       - echo Configuring kubectl for EKS...
-      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $EKS_CLUSTER_NAME
       - echo Current kubectl context
       - kubectl config current-context
       - echo Validating IMAGE_URI environment variable...
